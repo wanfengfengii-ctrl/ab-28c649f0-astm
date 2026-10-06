@@ -1,0 +1,32 @@
+services:
+  api:
+    build: .
+    image: astm-audit:latest
+    environment:
+      HOST: 0.0.0.0
+      PORT: "8080"
+    ports:
+      # 宿主机端口通过环境变量 HOST_PORT 配置，默认 8080。
+      - "${HOST_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "python", "scripts/healthcheck.py"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+      start_period: 1s
+    restart: unless-stopped
+
+  # 一次性服务：api 健康后自动运行测试/构建检查/冒烟，输出退出码后退出。
+  # docker compose up 时会随 api 一起执行；也可单独运行：
+  #   docker compose run --rm verify
+  verify:
+    build: .
+    image: astm-audit:latest
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      API_URL: http://api:8080
+      HEALTH_TIMEOUT: "60"
+    command: ["python", "scripts/verify.py"]
+    restart: "no"
